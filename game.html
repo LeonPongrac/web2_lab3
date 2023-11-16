@@ -1,7 +1,7 @@
 <!DOCTYPE html>
     <html>
         <head>
-            <title>Vrlo jednostavna HTML5 igra</title>
+            <title>HTML5 igra</title>
             <style>
                 canvas {
                     border:1px solid #000000;
@@ -9,20 +9,22 @@
                 }
             </style>
             <script>
-                //1. korak omoguči micanje sa strelicama
-                //2. korak dodaj asteroide
-                //3. kolizija
                 var myGamePiece;
+                var asteroids = [];
                 function startGame() {
-                    myGamePiece = new component(30, 30, "red", 150, 150);
+                    myGamePiece = new component(30, 30, "red", window.innerWidth/2, window.innerHeight/2);
+                    asteroids.push(new component(30 , 30, getRandomGrayColor(), Math.random() * window.innerWidth, -30, "obstacle", 2 * Math.random(), 2 * Math.random()));
+                    asteroids.push(new component(30, 30, getRandomGrayColor(), -30, Math.random() * window.innerHeight, "obstacle", 2 * Math.random(), 2 * Math.random()));
+                    asteroids.push(new component(30, 30, getRandomGrayColor(), Math.random() * window.innerWidth, window.innerHeight + 30, "obstacle", 2 * Math.random(), 2 * Math.random()));
                     myGameArea.start();
                 }
                 var myGameArea = {
                     canvas : document.createElement("canvas"),
+                    keys: [],
                     start : function() {
                         this.canvas.id = "myGameCanvas";
-                        this.canvas.width = 480;
-                        this.canvas.height = 270;
+                        this.canvas.width = window.innerWidth - 21;
+                        this.canvas.height = window.innerHeight - 21;
                         this.context = this.canvas.getContext("2d");
                         document.body.insertBefore(this.canvas, document.body.childNodes[0]);
                         this.frameNo = 0;
@@ -33,14 +35,22 @@
                     },
                     clear : function() {
                         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    },
+                    keyDown: function (e) {
+                         myGameArea.keys[e.keyCode] = true;
+                    },
+                    keyUp: function (e) {
+                        myGameArea.keys[e.keyCode] = false;
                     }
                 }
-                function component(width, height, color, x, y, type) {
-                    this.type = type;
+                document.addEventListener("keydown", myGameArea.keyDown);
+                document.addEventListener("keyup", myGameArea.keyUp);
+                function component(width, height, color, x, y, type, speed_x, speed_y) {
+                    this.type = type || "default";
                     this.width = width;
                     this.height = height;
-                    this.speed_x = 2;
-                    this.speed_y = 2;
+                    this.speed_x = speed_x || 2;
+                    this.speed_y = speed_y || 2;
                     this.x = x;
                     this.y = y;
                     this.update = function() {
@@ -52,26 +62,83 @@
                         ctx.restore();
                     }
                     this.newPos = function() {
-                        if (this.x - this.width / 2 < 0)
-                            this.speed_x = 2;
-                        else if ((this.x + this.width / 2) >= myGameArea.context.canvas.width)
-                            this.speed_x = -2;
-                        if (this.y - this.height / 2 < 0)
-                            this.speed_y = -2;
-                        else if ((this.y + this.height / 2) >= myGameArea.context.canvas.height)
-                            this.speed_y = 2;
-                        this.x += this.speed_x;
-                        this.y -= this.speed_y;
+                        if (this.type === "obstacle") {
+                            this.x += this.speed_x;
+                            this.y += this.speed_y;
+
+                            // Remove obstacles that go off-screen
+                            if (this.y > window.innerHeight + 30 || this.x < -30 || this.x > window.innerWidth + 30) {
+                                asteroids.splice(asteroids.indexOf(this), 1);
+                            }
+                        }
+                        else {
+                            if (myGameArea.keys && myGameArea.keys[37]) {
+                                // Left arrow key
+                                this.x -= this.speed_x;
+                            }
+                            if (myGameArea.keys && myGameArea.keys[39]) {
+                                // Right arrow key
+                                this.x += this.speed_x;
+                            }
+                            if (myGameArea.keys && myGameArea.keys[38]) {
+                                // Up arrow key
+                                this.y -= this.speed_y;
+                            }
+                            if (myGameArea.keys && myGameArea.keys[40]) {
+                                // Down arrow key
+                                this.y += this.speed_y;
+                            }
+
+                            if (this.x - this.width / 2 < 0) this.x = this.width / 2;
+                            if (this.x + this.width / 2 > myGameArea.canvas.width) this.x = myGameArea.canvas.width - this.width / 2;
+                            if (this.y - this.height / 2 < 0) this.y = this.height / 2;
+                            if (this.y + this.height / 2 > myGameArea.canvas.height) this.y = myGameArea.canvas.height - this.height / 2;
+                        }
                     }
+                }
+                function restartGame() {
+                    asteroids = []; // Clear obstacles array
+                    myGameArea.keys = [];
+                    myGamePiece = new component(30, 30, "red", window.innerWidth/2, window.innerHeight/2); // Reset player position
+                    myGameArea.frameNo = 0; // Reset frame count
+                    myGameArea.start(); // Start the game again
                 }
                 function updateGameArea() {
                     myGameArea.clear();
                     myGamePiece.newPos();
                     myGamePiece.update();
+                    for (var i = 0; i < asteroids.length; i++) {
+                        asteroids[i].newPos();
+                        asteroids[i].update();
+                        if (checkCollision(myGamePiece, asteroids[i])) {
+                            // Handle collision (you can customize this part based on your needs)
+                            alert("Game Over! You collided with an obstacl.");
+                            restartGame(); // Stop the game or perform other actions
+                            return;
+                        }
+                    }
+                    myGameArea.frameNo += 1;
+                    if (myGameArea.frameNo % 100 === 0) {
+                        asteroids.push(new component(30, 30, getRandomGrayColor(), Math.random() * window.innerWidth, -30, "obstacle", 2 * Math.random(), 2 * Math.random()));
+                        asteroids.push(new component(30, 30, getRandomGrayColor(), -30, Math.random() * window.innerHeight, "obstacle", 2 * Math.random(), 2 * Math.random()));
+                        asteroids.push(new component(30, 30, getRandomGrayColor(), Math.random() * window.innerWidth, window.innerHeight + 30, "obstacle", 2 * Math.random(), 2 * Math.random()));
+                    }                   
+                }
+                function getRandomGrayColor() {
+                    // Function to generate a random shade of gray
+                    var shades = ["#555", "#666", "#777", "#888", "#999", "#aaa", "#bbb", "#ccc", "#ddd", "#eee"];
+                    return shades[Math.floor(Math.random() * shades.length)];
+                }
+                function checkCollision(obj1, obj2) {
+                    return (
+                        obj1.x < obj2.x + obj2.width &&
+                        obj1.x + obj1.width > obj2.x &&
+                        obj1.y < obj2.y + obj2.height &&
+                        obj1.y + obj1.height > obj2.y
+                    );
                 }
             </script>
         </head>
         <body onload="startGame()">
-            <h1>Vrlo jednostavna HTML5 igra</h1>
         </body>
     </html>
