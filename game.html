@@ -11,24 +11,36 @@
             <script>
                 var myGamePiece;
                 var asteroids = [];
+                var bestTime = localStorage.getItem("bestTime") || Infinity;
+                var startTime;
                 function startGame() {
+                    // Create the player's game piece
                     myGamePiece = new component(30, 30, "red", window.innerWidth/2, window.innerHeight/2);
-                    asteroids.push(new component(30 , 30, getRandomGrayColor(), Math.random() * window.innerWidth, -30, "obstacle", 2 * Math.random(), 2 * Math.random()));
-                    asteroids.push(new component(30, 30, getRandomGrayColor(), -30, Math.random() * window.innerHeight, "obstacle", 2 * Math.random(), 2 * Math.random()));
-                    asteroids.push(new component(30, 30, getRandomGrayColor(), Math.random() * window.innerWidth, window.innerHeight + 30, "obstacle", 2 * Math.random(), 2 * Math.random()));
+
+                    // Create initial asteroids (one for each side of the screen)
+                    asteroids.push(new component(30 , 30, getRandomGrayColor(), Math.random() * window.innerWidth, -30, "asteroid", 2 * (Math.random() - 0.5) * 2, 2 * Math.random()));
+                    asteroids.push(new component(30, 30, getRandomGrayColor(), -30, Math.random() * window.innerHeight, "asteroid", 2 * Math.random(), 2 * (Math.random() - 0.5) * 2));
+                    asteroids.push(new component(30, 30, getRandomGrayColor(), Math.random() * window.innerWidth, window.innerHeight, "asteroid", 2 * (Math.random() - 0.5) * 2, -2 * Math.random()));
+                    asteroids.push(new component(30, 30, getRandomGrayColor(), window.innerWidth, Math.random() * window.innerHeight, "asteroid", -2 * Math.random(), 2 * (Math.random() - 0.5) * 2));
+
+                    // Start the game area
                     myGameArea.start();
                 }
                 var myGameArea = {
                     canvas : document.createElement("canvas"),
                     keys: [],
                     start : function() {
+                        // Set up the canvas
                         this.canvas.id = "myGameCanvas";
                         this.canvas.width = window.innerWidth - 21;
-                        this.canvas.height = window.innerHeight - 21;
+                        this.canvas.height = window.innerHeight - 23;
                         this.context = this.canvas.getContext("2d");
                         document.body.insertBefore(this.canvas, document.body.childNodes[0]);
                         this.frameNo = 0;
                         this.interval = setInterval(updateGameArea, 20);
+
+                        // Initialize timer
+                        startTime = new Date().getTime();
                     },
                     stop : function() {
                         clearInterval(this.interval);
@@ -43,26 +55,34 @@
                         myGameArea.keys[e.keyCode] = false;
                     }
                 }
+
+                // Set up event listeners for key input
                 document.addEventListener("keydown", myGameArea.keyDown);
                 document.addEventListener("keyup", myGameArea.keyUp);
+
                 function component(width, height, color, x, y, type, speed_x, speed_y) {
-                    this.type = type || "default";
+
+                    // Define a game component (player or asteroid)
+                    this.type = type || "player";
                     this.width = width;
                     this.height = height;
                     this.speed_x = speed_x || 2;
                     this.speed_y = speed_y || 2;
                     this.x = x;
                     this.y = y;
-                    this.update = function() {
+                    this.update = function () {
                         ctx = myGameArea.context;
                         ctx.save();
                         ctx.translate(this.x, this.y);
                         ctx.fillStyle = color;
                         ctx.fillRect(this.width / -2, this.height / -2, this.width, this.height);
                         ctx.restore();
-                    }
-                    this.newPos = function() {
-                        if (this.type === "obstacle") {
+                    };
+
+                    // Move the component
+                    this.newPos = function () {
+                        if (this.type === "asteroid") {
+                            // Move asteroids
                             this.x += this.speed_x;
                             this.y += this.speed_y;
 
@@ -70,8 +90,9 @@
                             if (this.y > window.innerHeight + 30 || this.x < -30 || this.x > window.innerWidth + 30) {
                                 asteroids.splice(asteroids.indexOf(this), 1);
                             }
-                        }
+                        } 
                         else {
+                            // Move the player
                             if (myGameArea.keys && myGameArea.keys[37]) {
                                 // Left arrow key
                                 this.x -= this.speed_x;
@@ -89,46 +110,96 @@
                                 this.y += this.speed_y;
                             }
 
+                            // Ensure the player stays within the canvas bounds
                             if (this.x - this.width / 2 < 0) this.x = this.width / 2;
                             if (this.x + this.width / 2 > myGameArea.canvas.width) this.x = myGameArea.canvas.width - this.width / 2;
                             if (this.y - this.height / 2 < 0) this.y = this.height / 2;
                             if (this.y + this.height / 2 > myGameArea.canvas.height) this.y = myGameArea.canvas.height - this.height / 2;
                         }
+                    };
+                }
+
+                // Update the game timer
+                function updateTimer() {
+                    var currentTime = new Date().getTime();
+                    var elapsedTime = currentTime - startTime;
+
+                    // Update timer display on the canvas
+                    myGameArea.context.fillStyle = "#000";
+                    myGameArea.context.font = "20px Arial";
+                    myGameArea.context.fillText("Time: " + formatTime(elapsedTime), window.innerWidth - 250, 20);
+
+                    // Update best time if the current time is better
+                    if (elapsedTime > bestTime) {
+                        bestTime = elapsedTime;
+                        localStorage.setItem("bestTime", bestTime);
                     }
+
+                    // Update best time display on the canvas
+                    myGameArea.context.fillText("Best Time: " + formatTime(bestTime), window.innerWidth - 250, 40);
                 }
+
+                // Format the time
+                function formatTime(time) {
+                    var minutes = Math.floor(time / (60 * 1000));
+                    var seconds = Math.floor((time % (60 * 1000)) / 1000);
+                    var milliseconds = time % 1000;
+                    var formattedTime =
+                        padWithZero(minutes, 2) + ":" +
+                        padWithZero(seconds, 2) + "." +
+                        padWithZero(milliseconds, 3);
+                    return formattedTime;
+                }
+
+                // Pad the value with zeros
+                function padWithZero(value, length) {
+                    return (value + "").padStart(length, "0");
+                }
+
+                // Restart the game
                 function restartGame() {
-                    asteroids = []; // Clear obstacles array
+                    asteroids = [];
                     myGameArea.keys = [];
-                    myGamePiece = new component(30, 30, "red", window.innerWidth/2, window.innerHeight/2); // Reset player position
-                    myGameArea.frameNo = 0; // Reset frame count
-                    myGameArea.start(); // Start the game again
+                    myGameArea.stop();
+                    myGamePiece = new component(30, 30, "red", window.innerWidth/2, window.innerHeight/2);
+                    myGameArea.frameNo = 0;
+                    myGameArea.start();
                 }
+
+                // Update the game area
                 function updateGameArea() {
                     myGameArea.clear();
                     myGamePiece.newPos();
                     myGamePiece.update();
+                    updateTimer();
                     for (var i = 0; i < asteroids.length; i++) {
-                        asteroids[i].newPos();
-                        asteroids[i].update();
-                        if (checkCollision(myGamePiece, asteroids[i])) {
-                            // Handle collision (you can customize this part based on your needs)
-                            alert("Game Over! You collided with an obstacl.");
-                            restartGame(); // Stop the game or perform other actions
-                            return;
-                        }
+                        if (asteroids[i]) {
+                            asteroids[i].newPos();
+                            asteroids[i].update();
+                            if (checkCollision(myGamePiece, asteroids[i])) {
+                                restartGame();
+                                return;
+                            }
+                        }   
                     }
                     myGameArea.frameNo += 1;
-                    if (myGameArea.frameNo % 100 === 0) {
-                        asteroids.push(new component(30, 30, getRandomGrayColor(), Math.random() * window.innerWidth, -30, "obstacle", 2 * Math.random(), 2 * Math.random()));
-                        asteroids.push(new component(30, 30, getRandomGrayColor(), -30, Math.random() * window.innerHeight, "obstacle", 2 * Math.random(), 2 * Math.random()));
-                        asteroids.push(new component(30, 30, getRandomGrayColor(), Math.random() * window.innerWidth, window.innerHeight + 30, "obstacle", 2 * Math.random(), 2 * Math.random()));
+
+                    // Create new asteroids periodically (one for each side of the screen)
+                    if (myGameArea.frameNo % 20 === 0) {
+                        asteroids.push(new component(30, 30, getRandomGrayColor(), Math.random() * window.innerWidth, -30, "asteroid", 2 * (Math.random() - 0.5) * 2, 2 * Math.random()));
+                        asteroids.push(new component(30, 30, getRandomGrayColor(), -30, Math.random() * window.innerHeight, "asteroid", 2 * Math.random(), 2 * (Math.random() - 0.5) * 2));
+                        asteroids.push(new component(30, 30, getRandomGrayColor(), Math.random() * window.innerWidth, window.innerHeight, "asteroid", 2 * (Math.random() - 0.5) * 2, -2 * Math.random()));
+                        asteroids.push(new component(30, 30, getRandomGrayColor(), window.innerWidth, Math.random() * window.innerHeight, "asteroid", -2 * Math.random(), 2 * (Math.random() - 0.5) * 2));
                     }                   
                 }
+
+                // Get a random gray color
                 function getRandomGrayColor() {
-                    // Function to generate a random shade of gray
-                    var shades = ["#555", "#666", "#777", "#888", "#999", "#aaa", "#bbb", "#ccc", "#ddd", "#eee"];
+                    var shades = ["#555", "#666", "#777", "#888", "#999", "#aaa", "#bbb", "#ccc", "#ddd"];
                     return shades[Math.floor(Math.random() * shades.length)];
                 }
+
+                // Check if two objects collide
                 function checkCollision(obj1, obj2) {
                     return (
                         obj1.x < obj2.x + obj2.width &&
